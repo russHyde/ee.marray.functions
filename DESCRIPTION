@@ -13,4 +13,6 @@ RoxygenNote: 5.0.1
 Imports: limma,
     dplyr,
     magrittr,
-    tibble
+    tibble,
+    methods
+Suggests: testthat
