@@ -8,6 +8,51 @@
 
 ################################################################################
 
+.is_valid_colname <- function(
+    colname,
+    dframe
+){
+  is.character(colname) &&
+    length(colname) == 1 &&
+    colname %in% colnames(dframe)
+}
+
+################################################################################
+
+#' @importFrom   dplyr         mutate_   group_by_   summarise_   filter_
+#' @importFrom   magrittr      %>%   extract2
+
+.get_consistent_diffexes <- function(
+    dframe,
+    grouping_col = "gene",
+    diffex_col   = "diffex"
+){
+  if (!.is_valid_colname(grouping_col, dframe)) {
+    stop("grouping_col should be in colnames of dframe")
+  }
+  if (!.is_valid_colname(diffex_col, dframe)) {
+    stop("diffex_col should be in colnames of dframe")
+  }
+
+  group_dots <- as.symbol(grouping_col)
+
+  .is_consistent <- function(x){
+    all(x == 1) || all(x == -1)
+  }
+
+  dframe %>%
+    dplyr::mutate_(diffex = diffex_col) %>%
+    dplyr::group_by_(.dots = group_dots) %>%
+    dplyr::summarise_(
+      reproducible = ~ .is_consistent(diffex)
+      ) %>%
+    dplyr::filter_(~ reproducible) %>%
+    magrittr::extract2(grouping_col) %>%
+    unique
+}
+
+################################################################################
+
 #' get_diffexed_genes
 #'
 #' Extract genes from a limma-fit object (resulting from an eBayes call) that
@@ -47,8 +92,9 @@
 #' @return       A subvector of the inidicated 'gene_column' in fit fit$genes
 #'   annotation dataframe.
 #'
-#' @importFrom   magrittr      %>%   extract2
 #' @importFrom   limma         decideTests
+#' @importFrom   magrittr      %>%   extract2
+#' @importFrom   methods       is
 #' @importFrom   tibble        data_frame
 #' @importFrom   dplyr         filter   group_by   summarise
 #'
@@ -64,13 +110,12 @@ get_diffexed_genes <- function(
 ){
   diffex_type <- match.arg(diffex_type)
 
-
   stopifnot(
     is.character(gene_column) &&
       length(gene_column) == 1
     )
   stopifnot(
-    is(fit, "MArrayLM")           &&
+    methods::is(fit, "MArrayLM")  &&
       "genes"     %in% names(fit) &&
       gene_column %in% colnames(fit[["genes"]])
     )
@@ -88,16 +133,11 @@ get_diffexed_genes <- function(
     ) {
     genes[diffexed_rows]
   } else {
-    tibble::data_frame(
-      diffex = dt[, 1],
-      gene   = genes
-    ) %>%
-      dplyr::group_by(gene) %>%
-      dplyr::summarise(diffex = all(diffex == 1) |
-                                all(diffex == -1)
-                       ) %>%
-      dplyr::filter(diffex) %>%
-      magrittr::extract2("gene")
+    .get_consistent_diffexes(
+      dframe       = tibble::data_frame(diffex = dt[, 1], gene = genes),
+      grouping_col = "gene",
+      diffex_col   = "diffex"
+    )
   }
 
   diffexed_genes %>%
