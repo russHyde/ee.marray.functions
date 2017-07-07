@@ -50,7 +50,7 @@
 #' @importFrom   magrittr      %>%   extract2
 #' @importFrom   limma         decideTests
 #' @importFrom   tibble        data_frame
-#' @importFrom   dplyr         ......
+#' @importFrom   dplyr         filter   group_by   summarise
 #'
 #' @importClassesFrom   limma   MArrayLM
 #'
